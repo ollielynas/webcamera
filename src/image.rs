@@ -3,10 +3,10 @@ use egui::{epaint::image, CentralPanel};
 use wasm_bindgen::JsCast;
 use web_sys::{window, Navigator};
 
+use crate::MyApp;
+
 
 pub fn capture_frame() -> anyhow::Result<(u32,u32,Vec<u8>)> {
-
-        
     let video = window().ok_or(anyhow!("no window"))?
     .document().ok_or(anyhow!("no document"))?
     .get_element_by_id("videoElement").ok_or(anyhow!("video element not found"))?;
@@ -38,4 +38,10 @@ pub fn capture_frame() -> anyhow::Result<(u32,u32,Vec<u8>)> {
     let data = context.get_image_data(0.0, 0.0, canvas.width() as f64, canvas.height() as f64).ok().ok_or(anyhow!("failed to capture"))?;
     data.data();
     Ok((canvas.width(), canvas.height(), data.data().to_vec()))
+}
+
+impl MyApp {
+    pub fn save_photo(&self) {
+        
+    }
 }

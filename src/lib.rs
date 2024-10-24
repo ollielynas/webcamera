@@ -2,5 +2,6 @@
 
 mod app;
 mod image;
+mod render;
 
 pub use app::MyApp;

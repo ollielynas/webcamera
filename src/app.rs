@@ -1,19 +1,24 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use egui::{pos2, CentralPanel, Color32, Image, Pos2, Rect, SidePanel, TextureHandle};
+use egui::{pos2, Button, CentralPanel, Color32, Frame, Image, Pos2, Rect, SidePanel, TextureHandle, ThemePreference};
+use strum::IntoEnumIterator;
 use web_sys::{window, Navigator};
 
-use crate::image::capture_frame;
+use crate::{image::capture_frame, render::UiTab};
 
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
+
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct MyApp {
 
+    pub ui_tab: UiTab,
+
     #[serde(skip)] // This how you opt-out of serialization of a field
-    texture: Option<TextureHandle>,
+    pub texture: Option<TextureHandle>,
 }
 
 impl Default for MyApp {
@@ -21,6 +26,7 @@ impl Default for MyApp {
         
         Self {
             texture: None,
+            ui_tab: UiTab::default(),
         }
     }
 }
@@ -51,6 +57,12 @@ impl MyApp {
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         cc.egui_ctx.set_zoom_factor(2.5);
+        cc.egui_ctx.set_theme(ThemePreference::Light);
+
+        let mut fonts = egui::FontDefinitions::default();
+        egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+        cc.egui_ctx.set_fonts(fonts);
+        
         cc.egui_ctx.all_styles_mut(|style| {
             
         });
@@ -117,15 +129,37 @@ impl eframe::App for MyApp {
                 },
                 None => {
                     ui.label("failed to get video");
-
                 },
             }
         });
+        SidePanel::right("right hand panel").resizable(false)
+        .show_separator_line(false)
+        .exact_width(32.0)
+        .show(ctx, |ui| {
+            
+            ui.vertical_centered_justified(|ui| {
+            for i in UiTab::iter() {
+                if ui.add_enabled(i != self.ui_tab, Button::new(egui::RichText::new(i.icon()))).clicked() {
+                    self.ui_tab = i;
+                }
+            }
+            });
+        });
         CentralPanel::default()
         .show(ctx, |ui| {
-            ui.button("take photo");
-
+            match self.render_center(ui) {
+                Ok(_) => {},
+                Err(e) => {
+                    ui.label(format!("{:#?}", e));
+                },
+            }
         });
+        
+
+
+
+
+
         ctx.request_repaint_after(Duration::from_secs_f32((1.0/60.0)));
     }
 }

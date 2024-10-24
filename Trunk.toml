@@ -2,6 +2,9 @@
 offline = true       # Run without network access
 filehash = false
 public_url = "/webcamera"  
+minify = "on_release"
+release = false
+
 [serve]
 offline = true       # Run without network access
 filehash = false

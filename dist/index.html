@@ -11,7 +11,7 @@
 
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
     
-<script type="module" nonce="oWFl1WL4dUwj4kqSZXtsiQ==">
+<script type="module" nonce="B2UjJSGTdU/6MafIT2upTQ==">
 import init, * as bindings from '/webcamera/eframe_template.js';
 const wasm = await init('/webcamera/eframe_template_bg.wasm');
 
@@ -23,9 +23,9 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
     <!-- this is the base url relative to which other urls will be constructed. trunk will insert this from the public-url option -->
-    <base href="/" />
+    <base href="/webcamera/" />
 
-    <link rel="icon" href="/favicon.ico" integrity="sha384&#x2D;ZrPzZ2x&#x2B;&#x2F;Dg9qFnvGbJaG7j9Qm0c9mYBSsbG0Rt7MRmx2fqPtcMC76j8C7QoHY0T"/>
+    <link rel="icon" href="/webcamera/favicon.ico" integrity="sha384&#x2D;ZrPzZ2x&#x2B;&#x2F;Dg9qFnvGbJaG7j9Qm0c9mYBSsbG0Rt7MRmx2fqPtcMC76j8C7QoHY0T"/>
 
 
     
@@ -161,13 +161,17 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     var video = document.querySelector("#videoElement");
 
 if (navigator.mediaDevices.getUserMedia) {
-  navigator.mediaDevices.getUserMedia({ video: true })
+  navigator.mediaDevices.getUserMedia({ video:  { facingMode: { exact: "environment" } } })
     .then(function (stream) {
 
         video.srcObject = stream;
     })
     .catch(function (err0r) {
-      console.log(err0r);
+        navigator.mediaDevices.getUserMedia({ video:  { facingMode: true } })
+    .then(function (stream) {
+
+        video.srcObject = stream;
+    }).catch(function (err2r) {})
     });
 }
 

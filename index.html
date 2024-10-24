@@ -148,13 +148,17 @@
     var video = document.querySelector("#videoElement");
 
 if (navigator.mediaDevices.getUserMedia) {
-  navigator.mediaDevices.getUserMedia({ video: true })
+  navigator.mediaDevices.getUserMedia({ video:  { facingMode: { exact: "environment" } } })
     .then(function (stream) {
 
         video.srcObject = stream;
     })
     .catch(function (err0r) {
-      console.log(err0r);
+        navigator.mediaDevices.getUserMedia({ video:  { facingMode: true } })
+    .then(function (stream) {
+
+        video.srcObject = stream;
+    }).catch(function (err2r) {})
     });
 }
 

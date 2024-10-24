@@ -1,3 +1,7 @@
 [build]
 offline = true       # Run without network access
 filehash = false
+public_url = "/webcamera"  
+[serve]
+offline = true       # Run without network access
+filehash = false

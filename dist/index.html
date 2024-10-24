@@ -11,9 +11,9 @@
 
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
     
-<script type="module" nonce="55xy099WexdKazAEk0Y3fw==">
-import init, * as bindings from '/eframe_template.js';
-const wasm = await init('/eframe_template_bg.wasm');
+<script type="module" nonce="sG+zQrcyG1KrZx0D2HXbTQ==">
+import init, * as bindings from './eframe_template.js';
+const wasm = await init('./eframe_template_bg.wasm');
 
 
 window.wasmBindings = bindings;
@@ -129,8 +129,8 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         }
     </style>
 
-<link rel="modulepreload" href="eframe_template.js" crossorigin=anonymous integrity="sha384-NDIqjrQbzXXN3oKfSxe4BA5EwnoKAvEmqFmQZwr9hUbvxzzCfEYOsfeWqizY/+C/">
-<link rel="preload" href="eframe_template_bg.wasm" crossorigin=anonymous integrity="sha384-EReAhpZhaDMxxyZHiXVCGlvd6DfVRx2xDEtRzqrBKMeup7qN13jOjPm7eLo+Jjx7" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/eframe_template.js" crossorigin=anonymous integrity="sha384-NDIqjrQbzXXN3oKfSxe4BA5EwnoKAvEmqFmQZwr9hUbvxzzCfEYOsfeWqizY/+C/">
+<link rel="preload" href="/eframe_template_bg.wasm" crossorigin=anonymous integrity="sha384-EReAhpZhaDMxxyZHiXVCGlvd6DfVRx2xDEtRzqrBKMeup7qN13jOjPm7eLo+Jjx7" as="fetch" type="application/wasm"></head>
 
 <body>
     <!-- The WASM code will resize the canvas dynamically -->

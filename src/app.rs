@@ -1,25 +1,48 @@
+use std::time::Duration;
+
+use anyhow::anyhow;
+use egui::{pos2, CentralPanel, Color32, Image, Pos2, Rect, SidePanel, TextureHandle};
+use web_sys::{window, Navigator};
+
+use crate::image::capture_frame;
+
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct TemplateApp {
-    // Example stuff:
-    label: String,
+pub struct MyApp {
 
     #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+    texture: Option<TextureHandle>,
 }
 
-impl Default for TemplateApp {
+impl Default for MyApp {
     fn default() -> Self {
+        
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            texture: None,
         }
     }
 }
 
-impl TemplateApp {
+impl MyApp {
+
+    
+    
+    fn init_webcam() -> anyhow::Result<()> {
+        
+        let elem = window().ok_or(anyhow!("no window"))?
+        .document().ok_or(anyhow!("no document"))?
+        .get_element_by_id("videoElement").ok_or(anyhow!("video element not found"))?;
+        let canvas = window().ok_or(anyhow!("no window"))?
+        .document().ok_or(anyhow!("no document"))?
+        .get_element_by_id("canvas").ok_or(anyhow!("video element not found"))?;
+
+        canvas.set_attribute("width", &(elem.client_width()/10).to_string());
+        canvas.set_attribute("height", &(elem.client_height()/10).to_string());
+        Ok(())
+    }
+
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
@@ -27,83 +50,83 @@ impl TemplateApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
+        cc.egui_ctx.set_zoom_factor(2.5);
+        cc.egui_ctx.all_styles_mut(|style| {
+            
+        });
+        
+
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
 
         Default::default()
     }
+
+    fn update_texture(&mut self, ctx: &egui::Context) -> anyhow::Result<()> {
+        let (width, height, data) = capture_frame()?;
+
+        match self.texture {
+            Some(ref mut a) if a.size() == [width as usize, height as usize]  => {
+                (*a).set_partial([0,0], egui::ColorImage::from_rgba_premultiplied([width as usize,height as usize], &data), egui::TextureOptions {
+                    ..Default::default()
+                });
+            },
+            _ => {
+                self.texture = Some(ctx.load_texture("texture", egui::ColorImage::from_rgba_premultiplied([width as usize,height as usize], &data), egui::TextureOptions {
+                    ..Default::default()
+                }));
+            },
+        }
+
+        Ok(())
+    }
 }
 
-impl eframe::App for TemplateApp {
+impl eframe::App for MyApp {
+
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
+
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
+        self.update_texture(ctx);
+        
+        
 
-            egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
+        SidePanel::left("display")
+        .exact_width(ctx.screen_rect().width()*0.5)
+        .show(ctx, |ui| {
+            match self.texture {
+                Some(ref a) => {
+                    let mut image_rect = Rect::from_x_y_ranges(0.0..=a.size()[0] as f32, 0.0..=a.size()[1] as f32);
+                    image_rect.set_center(ui.available_rect_before_wrap().center());
+                    image_rect= image_rect.scale_from_center(
+                        (ui.available_rect_before_wrap().width()/a.size()[0] as f32)
+                        .min(
+                            ui.available_rect_before_wrap().height()/a.size()[1] as f32
+                        )
+                    );
+                    ui.painter_at(image_rect).image(a.id(), 
+                    image_rect
+                    , Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                },
+                None => {
+                    ui.label("failed to get video");
 
-                egui::widgets::global_theme_preference_buttons(ui);
-            });
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
-
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
+                },
             }
-
-            ui.separator();
-
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/main/",
-                "Source code."
-            ));
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
-            });
         });
+        CentralPanel::default()
+        .show(ctx, |ui| {
+            ui.button("take photo");
+
+        });
+        ctx.request_repaint_after(Duration::from_secs_f32((1.0/60.0)));
     }
 }
 
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
-        ui.label(".");
-    });
-}

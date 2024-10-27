@@ -1,11 +1,12 @@
-use std::time::Duration;
+use std::{sync::Arc};
+
 
 use anyhow::anyhow;
-use egui::{pos2, Button, CentralPanel, Color32, Frame, Image, Pos2, Rect, SidePanel, TextureHandle, ThemePreference};
+use egui::{pos2, Button, CentralPanel, Color32, Frame, Image, Pos2, Rect, RichText, SidePanel, TextureHandle, ThemePreference};
 use strum::IntoEnumIterator;
 use web_sys::{window, Navigator};
 
-use crate::{image::capture_frame, render::UiTab};
+use crate::{image::MyImage, render::UiTab};
 
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -16,44 +17,58 @@ use crate::{image::capture_frame, render::UiTab};
 pub struct MyApp {
 
     pub ui_tab: UiTab,
+    pub save_options: SaveImageOptions,
+
+    pub photos: Vec<MyImage>,
+
 
     #[serde(skip)] // This how you opt-out of serialization of a field
     pub texture: Option<TextureHandle>,
+
+
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(default)] // if we add new fields, give them default values when deserializing old state
+pub struct SaveImageOptions {
+    pub raw_png: bool,
+    pub jpg: bool,
+    pub png: bool,
+    pub image_index: i32,
+}
+
+impl Default for SaveImageOptions {
+    fn default() -> Self {
+        SaveImageOptions {
+            raw_png: false,
+            jpg: true,
+            png: false,
+            image_index: 0,
+        }
+    }
+}
 impl Default for MyApp {
     fn default() -> Self {
         
         Self {
             texture: None,
+            photos: vec![],
             ui_tab: UiTab::default(),
+            save_options: SaveImageOptions::default(),
+
         }
     }
 }
 
 impl MyApp {
 
-    
-    
-    fn init_webcam() -> anyhow::Result<()> {
-        
-        let elem = window().ok_or(anyhow!("no window"))?
-        .document().ok_or(anyhow!("no document"))?
-        .get_element_by_id("videoElement").ok_or(anyhow!("video element not found"))?;
-        let canvas = window().ok_or(anyhow!("no window"))?
-        .document().ok_or(anyhow!("no document"))?
-        .get_element_by_id("canvas").ok_or(anyhow!("video element not found"))?;
 
-        canvas.set_attribute("width", &(elem.client_width()/10).to_string());
-        canvas.set_attribute("height", &(elem.client_height()/10).to_string());
-        Ok(())
-    }
 
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
+        
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         cc.egui_ctx.set_zoom_factor(2.5);
@@ -72,20 +87,31 @@ impl MyApp {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
 
-        Default::default()
+        let mut s = MyApp::default();
+        return s;
     }
 
-    fn update_texture(&mut self, ctx: &egui::Context) -> anyhow::Result<()> {
-        let (width, height, data) = capture_frame()?;
-
+    pub fn update_texture(&mut self, ctx: &egui::Context) -> anyhow::Result<()> {
+        let mut perm_img = MyImage::default();
+        let img;
+        self.save_options.image_index = self.save_options.image_index.clamp(0, (self.photos.len() as i32 -1).max(0));
+        if self.ui_tab == UiTab::SavePhoto && self.save_options.image_index < self.photos.len() as i32 && self.photos.len()>0 {
+            
+            img = &self.photos[self.save_options.image_index as usize];
+            self.process_image(&mut perm_img);
+        }else {
+            perm_img = self.capture_frame(false)?;
+            self.process_image(&mut perm_img);
+            img = &perm_img;
+        }
         match self.texture {
-            Some(ref mut a) if a.size() == [width as usize, height as usize]  => {
-                (*a).set_partial([0,0], egui::ColorImage::from_rgba_premultiplied([width as usize,height as usize], &data), egui::TextureOptions {
+            Some(ref mut a) if a.size() == [img.width as usize, img.height as usize]  => {
+                (*a).set_partial([0,0], egui::ColorImage::from_rgba_premultiplied([img.width as usize,img.height as usize], &img.bytes), egui::TextureOptions {
                     ..Default::default()
                 });
             },
             _ => {
-                self.texture = Some(ctx.load_texture("texture", egui::ColorImage::from_rgba_premultiplied([width as usize,height as usize], &data), egui::TextureOptions {
+                self.texture = Some(ctx.load_texture("texture", egui::ColorImage::from_rgba_premultiplied([img.width as usize,img.height as usize], &img.bytes), egui::TextureOptions {
                     ..Default::default()
                 }));
             },
@@ -103,17 +129,20 @@ impl eframe::App for MyApp {
     }
 
 
+
+
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
         self.update_texture(ctx);
-        
-        
 
         SidePanel::left("display")
         .exact_width(ctx.screen_rect().width()*0.5)
+        .resizable(false)
+        .show_separator_line(false)
         .show(ctx, |ui| {
             match self.texture {
+                // render image
                 Some(ref a) => {
                     let mut image_rect = Rect::from_x_y_ranges(0.0..=a.size()[0] as f32, 0.0..=a.size()[1] as f32);
                     image_rect.set_center(ui.available_rect_before_wrap().center());
@@ -123,7 +152,15 @@ impl eframe::App for MyApp {
                             ui.available_rect_before_wrap().height()/a.size()[1] as f32
                         )
                     );
+                    if self.photos.len() == 0 || self.ui_tab != UiTab::SavePhoto {
+                    ui.label(
+                        RichText::new("low res preview").italics()
+                        .small()
+                        
+                    );
+                    }
                     ui.painter_at(image_rect).image(a.id(), 
+                
                     image_rect
                     , Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
                 },
@@ -136,7 +173,7 @@ impl eframe::App for MyApp {
         .show_separator_line(false)
         .exact_width(32.0)
         .show(ctx, |ui| {
-            
+
             ui.vertical_centered_justified(|ui| {
             for i in UiTab::iter() {
                 if ui.add_enabled(i != self.ui_tab, Button::new(egui::RichText::new(i.icon()))).clicked() {
@@ -154,13 +191,8 @@ impl eframe::App for MyApp {
                 },
             }
         });
-        
 
-
-
-
-
-        ctx.request_repaint_after(Duration::from_secs_f32((1.0/60.0)));
+        ctx.request_repaint_after(web_time::Duration::from_secs_f32(1.0/60.0));
     }
 }
 

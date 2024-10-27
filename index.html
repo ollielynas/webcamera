@@ -39,7 +39,7 @@
         body {
             /* Light mode background color for what is not covered by the egui canvas,
             or where the egui canvas is translucent. */
-            background: #909090;
+            background: #f4f4f4;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -134,7 +134,7 @@
         </p>
         <div class="lds-dual-ring"></div>
     </div>
-
+    <a id="download_files" style="display: none;"></a>
     <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
     <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
     <script>

@@ -11,7 +11,7 @@
 
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
     
-<script type="module" nonce="zp/ORoVYwnMC+oZdDLVtMw==">
+<script type="module" nonce="aDCzBdsOY4E0kZEYHrdGAQ==">
 import init, * as bindings from '/webcamera/eframe_template.js';
 const wasm = await init('/webcamera/eframe_template_bg.wasm');
 
@@ -50,7 +50,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         body {
             /* Light mode background color for what is not covered by the egui canvas,
             or where the egui canvas is translucent. */
-            background: #909090;
+            background: #f4f4f4;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -129,8 +129,8 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         }
     </style>
 
-<link rel="modulepreload" href="/webcamera/eframe_template.js" crossorigin=anonymous integrity="sha384-UCvCdVz1A7T9xhMUNratEOLzl7hFsbL05mvuNBwYZdXWovFwXTuQsOHw61Tfo6SD">
-<link rel="preload" href="/webcamera/eframe_template_bg.wasm" crossorigin=anonymous integrity="sha384-38DLOt4JFD9/LmZmjhcmrlg3IpYf5RnHuOnEbgBjFxDO7gN1kFft2hihU1APq+/S" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/webcamera/eframe_template.js" crossorigin=anonymous integrity="sha384-91PfQXzT7dOfm/DdVXiYHEmkhUcA99O7wdoGjR+jYhhmouaQURoBxh5dbSnkySWR">
+<link rel="preload" href="/webcamera/eframe_template_bg.wasm" crossorigin=anonymous integrity="sha384-HBwuTKri/1z0DypW/T+ZvRUun94Lxv5+pMFoOYuMUeHAGeDodGPfLVu8HMroLkLM" as="fetch" type="application/wasm"></head>
 
 <body>
     <!-- The WASM code will resize the canvas dynamically -->
@@ -147,7 +147,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         </p>
         <div class="lds-dual-ring"></div>
     </div>
-
+    <a id="download_files" style="display: none;"></a>
     <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
     <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
     <script>

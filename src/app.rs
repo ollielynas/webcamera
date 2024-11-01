@@ -1,12 +1,12 @@
-use std::{sync::Arc};
 
 
-use anyhow::anyhow;
-use egui::{pos2, Button, CentralPanel, Color32, Frame, Image, Pos2, Rect, RichText, SidePanel, TextureHandle, ThemePreference};
+use std::sync::Arc;
+
+use eframe::glow::Context;
+use egui::{Button, CentralPanel, SidePanel, TextureHandle, ThemePreference, TopBottomPanel};
 use strum::IntoEnumIterator;
-use web_sys::{window, Navigator};
 
-use crate::{image::MyImage, render::UiTab};
+use crate::{image::MyImage, image_info::HistogramData, render::UiTab};
 
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -18,12 +18,18 @@ pub struct MyApp {
 
     pub ui_tab: UiTab,
     pub save_options: SaveImageOptions,
+    pub histogram: HistogramData,
 
     pub photos: Vec<MyImage>,
-
+    
+    #[serde(skip)] // This how you opt-out of serialization of a field
+    pub gl:  Option<Arc<Context>>,
 
     #[serde(skip)] // This how you opt-out of serialization of a field
     pub texture: Option<TextureHandle>,
+
+    #[serde(skip)] // This how you opt-out of serialization of a field
+    pub photo: MyImage,
 
 
 }
@@ -55,7 +61,9 @@ impl Default for MyApp {
             photos: vec![],
             ui_tab: UiTab::default(),
             save_options: SaveImageOptions::default(),
-
+            gl: None,
+            photo: MyImage::default(),
+            histogram: HistogramData::default(),
         }
     }
 }
@@ -77,17 +85,20 @@ impl MyApp {
         let mut fonts = egui::FontDefinitions::default();
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
         cc.egui_ctx.set_fonts(fonts);
-        
         cc.egui_ctx.all_styles_mut(|style| {
             
         });
-        
+        cc.egui_ctx.tessellation_options_mut(|tess_options| {
+            tess_options.feathering = false;
+        });
+
 
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
 
         let mut s = MyApp::default();
+        s.gl = cc.gl.clone();
         return s;
     }
 
@@ -102,7 +113,8 @@ impl MyApp {
         }else {
             perm_img = self.capture_frame(false)?;
             self.process_image(&mut perm_img);
-            img = &perm_img;
+            self.photo = perm_img;
+            img = &self.photo;
         }
         match self.texture {
             Some(ref mut a) if a.size() == [img.width as usize, img.height as usize]  => {
@@ -132,48 +144,33 @@ impl eframe::App for MyApp {
 
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
 
         self.update_texture(ctx);
+        let landscape = ctx.screen_rect().aspect_ratio() > 1.0;
 
+        if landscape {
         SidePanel::left("display")
         .exact_width(ctx.screen_rect().width()*0.5)
         .resizable(false)
         .show_separator_line(false)
         .show(ctx, |ui| {
-            match self.texture {
-                // render image
-                Some(ref a) => {
-                    let mut image_rect = Rect::from_x_y_ranges(0.0..=a.size()[0] as f32, 0.0..=a.size()[1] as f32);
-                    image_rect.set_center(ui.available_rect_before_wrap().center());
-                    image_rect= image_rect.scale_from_center(
-                        (ui.available_rect_before_wrap().width()/a.size()[0] as f32)
-                        .min(
-                            ui.available_rect_before_wrap().height()/a.size()[1] as f32
-                        )
-                    );
-                    if self.photos.len() == 0 || self.ui_tab != UiTab::SavePhoto {
-                    ui.label(
-                        RichText::new("low res preview").italics()
-                        .small()
-                        
-                    );
-                    }
-                    ui.painter_at(image_rect).image(a.id(), 
-                
-                    image_rect
-                    , Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
-                },
-                None => {
-                    ui.label("failed to get video");
-                },
-            }
+            self.render_viewport(ui);
         });
+        }else {
+            TopBottomPanel::top("display")
+        .exact_height(ctx.screen_rect().height()*0.5)
+        .resizable(false)
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            self.render_viewport(ui);
+        });
+        };
         SidePanel::right("right hand panel").resizable(false)
         .show_separator_line(false)
         .exact_width(32.0)
+        .resizable(false)
         .show(ctx, |ui| {
-
             ui.vertical_centered_justified(|ui| {
             for i in UiTab::iter() {
                 if ui.add_enabled(i != self.ui_tab, Button::new(egui::RichText::new(i.icon()))).clicked() {
@@ -184,12 +181,13 @@ impl eframe::App for MyApp {
         });
         CentralPanel::default()
         .show(ctx, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
             match self.render_center(ui) {
                 Ok(_) => {},
                 Err(e) => {
                     ui.label(format!("{:#?}", e));
                 },
-            }
+            }});
         });
 
         ctx.request_repaint_after(web_time::Duration::from_secs_f32(1.0/60.0));

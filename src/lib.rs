@@ -4,5 +4,6 @@ mod app;
 mod image;
 mod render;
 mod file_stuff;
+mod image_info;
 
 pub use app::MyApp;

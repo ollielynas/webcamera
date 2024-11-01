@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use chrono::{DateTime, Local};
-use egui::{Color32, RichText, Ui};
+use egui::{pos2, Color32, Rect, RichText, Ui};
 use egui_phosphor::regular::{CARET_LEFT, CARET_RIGHT};
 use strum_macros::EnumIter;
 use web_sys::window;
@@ -10,6 +10,7 @@ use crate::{app::SaveImageOptions, file_stuff::download_zip_file, MyApp};
 #[derive(serde::Deserialize, serde::Serialize, EnumIter, PartialEq)]
 pub enum UiTab {
     TakePhoto,
+    Histogram,
     SavePhoto,
 }
 
@@ -24,6 +25,7 @@ impl UiTab {
         match self {
             UiTab::TakePhoto => egui_phosphor::regular::APERTURE,
             UiTab::SavePhoto => egui_phosphor::regular::FLOPPY_DISK,
+            UiTab::Histogram => egui_phosphor::regular::PALETTE,
             
         }
     }
@@ -38,7 +40,10 @@ impl MyApp {
                 self.render_photo_ui(ui)?;
             },
             UiTab::SavePhoto => {
-                self.render_save_ui(ui);
+                self.render_save_ui(ui)?;
+            },
+            UiTab::Histogram => {
+                self.render_histogram(ui);
             },
         }
         return Ok(())
@@ -120,6 +125,37 @@ impl MyApp {
         }
         Ok(())
     }
+
+    pub fn render_viewport(&mut self, ui: &mut Ui) {
+        match self.texture {
+            // render image
+            Some(ref a) => {
+                let mut image_rect = Rect::from_x_y_ranges(0.0..=a.size()[0] as f32, 0.0..=a.size()[1] as f32);
+                image_rect.set_center(ui.available_rect_before_wrap().center());
+                image_rect= image_rect.scale_from_center(
+                    (ui.available_rect_before_wrap().width()/a.size()[0] as f32)
+                    .min(
+                        ui.available_rect_before_wrap().height()/a.size()[1] as f32
+                    )
+                );
+                if self.photos.len() == 0 || self.ui_tab != UiTab::SavePhoto {
+                ui.label(
+                    RichText::new("low res preview").italics()
+                    .small()
+                    
+                );
+                }
+                ui.painter_at(image_rect).image(a.id(), 
+            
+                image_rect
+                , Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            },
+            None => {
+                ui.label("failed to get video");
+            },
+        }
+    }
+
 }
 
 
